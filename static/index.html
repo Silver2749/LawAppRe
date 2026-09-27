@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IPC Semantic Search</title>
+  <meta name="description" content="Describe an activity in plain language and find matching Indian Penal Code sections using AI embeddings." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0b0e13;
+      --surface: #12171f;
+      --surface2: #1a212c;
+      --border: #2a3444;
+      --text: #e8edf4;
+      --muted: #8b9bb0;
+      --accent: #3b82f6;
+      --accent-dim: rgba(59, 130, 246, 0.15);
+      --accent-hover: #2563eb;
+      --success: #22c55e;
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "DM Sans", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.55;
+      background-image:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59, 130, 246, 0.12), transparent),
+        radial-gradient(ellipse 60% 40% at 100% 100%, rgba(34, 197, 94, 0.06), transparent);
+    }
+
+    .container {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 2.75rem 1.25rem 4rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.25rem;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: var(--accent-dim);
+      padding: 0.28rem 0.7rem;
+      border-radius: 999px;
+      margin-bottom: 0.9rem;
+    }
+
+    header h1 {
+      font-size: 1.95rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.45rem;
+    }
+
+    header p {
+      color: var(--muted);
+      font-size: 0.98rem;
+      max-width: 420px;
+      margin: 0 auto;
+    }
+
+    .search-box {
+      display: flex;
+      gap: 0.65rem;
+      margin-bottom: 1.1rem;
+    }
+
+    .search-box input {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.95rem 1.2rem;
+      font-size: 1.02rem;
+      color: var(--text);
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .search-box input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    .search-box input::placeholder {
+      color: var(--muted);
+    }
+
+    .search-box button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: var(--radius);
+      padding: 0.95rem 1.5rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    .search-box button:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+
+    .search-box button:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    .search-box button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .examples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+      margin-bottom: 1.75rem;
+      justify-content: center;
+    }
+
+    .examples span {
+      font-size: 0.78rem;
+      color: var(--muted);
+      width: 100%;
+      text-align: center;
+      margin-bottom: 0.15rem;
+    }
+
+    .examples button {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 0.38rem 0.9rem;
+      font-size: 0.82rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .examples button:hover {
+      border-color: var(--accent);
+      color: var(--text);
+      background: var(--accent-dim);
+    }
+
+    .status {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 1.35rem;
+      min-height: 1.4em;
+    }
+
+    .status .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: -2px;
+      margin-right: 0.4rem;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .results {
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.3rem 1.45rem;
+      transition: border-color 0.15s, transform 0.15s;
+      animation: fadeUp 0.35s ease both;
+    }
+
+    .card:nth-child(1) { animation-delay: 0.02s; }
+    .card:nth-child(2) { animation-delay: 0.06s; }
+    .card:nth-child(3) { animation-delay: 0.10s; }
+    .card:nth-child(4) { animation-delay: 0.14s; }
+    .card:nth-child(5) { animation-delay: 0.18s; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card:hover {
+      border-color: #3a4a5c;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 0.55rem;
+    }
+
+    .section-badge {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.8rem;
+      font-weight: 500;
+      background: var(--accent-dim);
+      color: var(--accent);
+      padding: 0.22rem 0.6rem;
+      border-radius: 7px;
+      white-space: nowrap;
+    }
+
+    .similarity {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.78rem;
+      color: var(--success);
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .sim-bar {
+      width: 48px;
+      height: 4px;
+      background: var(--surface2);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .sim-bar span {
+      display: block;
+      height: 100%;
+      background: var(--success);
+      border-radius: 2px;
+    }
+
+    .card h3 {
+      font-size: 1.08rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.015em;
+    }
+
+    .card p {
+      color: var(--muted);
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 3.25rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    footer a:hover { text-decoration: underline; }
+
+    @media (max-width: 540px) {
+      .search-box { flex-direction: column; }
+      .search-box button { width: 100%; }
+      header h1 { font-size: 1.55rem; }
+      .container { padding-top: 1.75rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="badge">Semantic Search · all-MiniLM-L6-v2</div>
+      <h1>IPC Section Finder</h1>
+      <p>Describe an activity or offense in everyday language. We'll find the closest matching Indian Penal Code sections.</p>
+    </header>
+
+    <div class="search-box">
+      <input
+        type="text"
+        id="query"
+        placeholder="e.g. someone steals my phone from a shop..."
+        autocomplete="off"
+        autofocus
+      />
+      <button id="searchBtn" onclick="doSearch()">Search</button>
+    </div>
+
+    <div class="examples">
+      <span>Try an example</span>
+      <button onclick="setQuery('someone steals my phone')">Theft of phone</button>
+      <button onclick="setQuery('killing a person intentionally')">Murder</button>
+      <button onclick="setQuery('husband tortures wife for dowry')">Dowry cruelty</button>
+      <button onclick="setQuery('cheating someone by promising fake job')">Cheating</button>
+      <button onclick="setQuery('throwing acid on someone')">Acid attack</button>
+      <button onclick="setQuery('publishing false news that causes panic')">False news</button>
+    </div>
+
+    <div class="status" id="status"></div>
+    <div class="results" id="results"></div>
+
+    <footer>
+      Not legal advice · Embeddings generated offline ·
+      Data from <a href="https://github.com/civictech-India/Indian-Law-Penal-Code-Json" target="_blank" rel="noopener">civictech-India</a>
+    </footer>
+  </div>
+
+  <script>
+    const queryEl = document.getElementById("query");
+    const statusEl = document.getElementById("status");
+    const resultsEl = document.getElementById("results");
+    const searchBtn = document.getElementById("searchBtn");
+
+    queryEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") doSearch();
+    });
+
+    function setQuery(text) {
+      queryEl.value = text;
+      doSearch();
+    }
+
+    async function doSearch() {
+      const query = queryEl.value.trim();
+      if (!query) return;
+
+      searchBtn.disabled = true;
+      statusEl.innerHTML = '<span class="spinner"></span>Searching...';
+      resultsEl.innerHTML = "";
+
+      try {
+        const res = await fetch("/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query }),
+        });
+
+        if (!res.ok) throw new Error("Search request failed (" + res.status + ")");
+
+        const data = await res.json();
+        statusEl.textContent = data.length
+          ? `Top ${data.length} matching sections`
+          : "No matches found";
+
+        resultsEl.innerHTML = data
+          .map(
+            (r) => {
+              const pct = Math.round(r.similarity * 1000) / 10;
+              return `
+          <article class="card">
+            <div class="card-header">
+              <span class="section-badge">Section ${escapeHtml(r.section)}</span>
+              <span class="similarity">
+                <span class="sim-bar"><span style="width:${Math.min(100, pct)}%"></span></span>
+                ${pct}%
+              </span>
+            </div>
+            <h3>${escapeHtml(r.title)}</h3>
+            <p>${escapeHtml(r.description)}</p>
+          </article>`;
+            }
+          )
+          .join("");
+      } catch (err) {
+        statusEl.textContent = "Error: " + err.message;
+      } finally {
+        searchBtn.disabled = false;
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+  </script>
+</body>
+</html>
