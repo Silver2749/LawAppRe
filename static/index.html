@@ -4,10 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LawAppRe – IPC & BNS Search</title>
-  <meta name="description" content="Describe an activity in plain language and find matching IPC / BNS sections using InsightLaw API." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     :root {
       --bg: #0b0e13;
@@ -22,284 +19,78 @@
       --success: #22c55e;
       --radius: 14px;
     }
-
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
-      font-family: "DM Sans", system-ui, -apple-system, sans-serif;
+      font-family: "DM Sans", system-ui, sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
       line-height: 1.55;
       background-image:
-        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59, 130, 246, 0.12), transparent),
-        radial-gradient(ellipse 60% 40% at 100% 100%, rgba(34, 197, 94, 0.06), transparent);
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59, 130, 246, 0.12), transparent);
     }
-
-    .container {
-      max-width: 780px;
-      margin: 0 auto;
-      padding: 2.75rem 1.25rem 4rem;
-    }
-
-    header {
-      text-align: center;
-      margin-bottom: 2.25rem;
-    }
-
+    .container { max-width: 780px; margin: 0 auto; padding: 2.75rem 1.25rem 4rem; }
+    header { text-align: center; margin-bottom: 2rem; }
     .badge {
-      display: inline-block;
-      font-size: 0.72rem;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: var(--accent);
-      background: var(--accent-dim);
-      padding: 0.28rem 0.7rem;
-      border-radius: 999px;
-      margin-bottom: 0.9rem;
+      display: inline-block; font-size: 0.72rem; font-weight: 600;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      color: var(--accent); background: var(--accent-dim);
+      padding: 0.28rem 0.7rem; border-radius: 999px; margin-bottom: 0.9rem;
     }
-
-    header h1 {
-      font-size: 1.95rem;
-      font-weight: 700;
-      letter-spacing: -0.03em;
-      margin-bottom: 0.45rem;
-    }
-
-    header p {
-      color: var(--muted);
-      font-size: 0.98rem;
-      max-width: 440px;
-      margin: 0 auto;
-    }
-
-    .corpus-toggle {
-      display: flex;
-      justify-content: center;
-      gap: 0.5rem;
-      margin-bottom: 1.25rem;
-    }
-
+    header h1 { font-size: 1.95rem; font-weight: 700; margin-bottom: 0.45rem; }
+    header p { color: var(--muted); font-size: 0.98rem; max-width: 440px; margin: 0 auto; }
+    .corpus-toggle { display: flex; justify-content: center; gap: 0.5rem; margin-bottom: 1.25rem; }
     .corpus-toggle button {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      color: var(--muted);
-      border-radius: 999px;
-      padding: 0.4rem 1.1rem;
-      font-size: 0.85rem;
-      font-family: inherit;
-      cursor: pointer;
-      transition: all 0.15s;
+      background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+      border-radius: 999px; padding: 0.4rem 1.1rem; font-size: 0.85rem;
+      font-family: inherit; cursor: pointer;
     }
-
     .corpus-toggle button.active {
-      background: var(--accent-dim);
-      border-color: var(--accent);
-      color: var(--accent);
-      font-weight: 600;
+      background: var(--accent-dim); border-color: var(--accent); color: var(--accent); font-weight: 600;
     }
-
-    .search-box {
-      display: flex;
-      gap: 0.65rem;
-      margin-bottom: 1.1rem;
-    }
-
+    .search-box { display: flex; gap: 0.65rem; margin-bottom: 1.1rem; }
     .search-box input {
-      flex: 1;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 0.95rem 1.2rem;
-      font-size: 1.02rem;
-      color: var(--text);
-      font-family: inherit;
-      outline: none;
-      transition: border-color 0.15s, box-shadow 0.15s;
+      flex: 1; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 0.95rem 1.2rem; font-size: 1.02rem;
+      color: var(--text); font-family: inherit; outline: none;
     }
-
-    .search-box input:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-dim);
-    }
-
-    .search-box input::placeholder {
-      color: var(--muted);
-    }
-
+    .search-box input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
     .search-box button {
-      background: var(--accent);
-      color: white;
-      border: none;
-      border-radius: var(--radius);
-      padding: 0.95rem 1.5rem;
-      font-size: 0.95rem;
-      font-weight: 600;
-      font-family: inherit;
-      cursor: pointer;
-      transition: background 0.15s, transform 0.1s;
-      white-space: nowrap;
+      background: var(--accent); color: white; border: none; border-radius: var(--radius);
+      padding: 0.95rem 1.5rem; font-size: 0.95rem; font-weight: 600;
+      font-family: inherit; cursor: pointer;
     }
-
-    .search-box button:hover:not(:disabled) {
-      background: var(--accent-hover);
-    }
-
-    .search-box button:active:not(:disabled) {
-      transform: scale(0.98);
-    }
-
-    .search-box button:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
-
-    .examples {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.45rem;
-      margin-bottom: 1.75rem;
-      justify-content: center;
-    }
-
-    .examples span {
-      font-size: 0.78rem;
-      color: var(--muted);
-      width: 100%;
-      text-align: center;
-      margin-bottom: 0.15rem;
-    }
-
+    .search-box button:disabled { opacity: 0.55; cursor: not-allowed; }
+    .examples { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-bottom: 1.75rem; justify-content: center; }
+    .examples span { font-size: 0.78rem; color: var(--muted); width: 100%; text-align: center; }
     .examples button {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      color: var(--muted);
-      border-radius: 999px;
-      padding: 0.38rem 0.9rem;
-      font-size: 0.82rem;
-      font-family: inherit;
-      cursor: pointer;
-      transition: all 0.15s;
+      background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+      border-radius: 999px; padding: 0.38rem 0.9rem; font-size: 0.82rem;
+      font-family: inherit; cursor: pointer;
     }
-
-    .examples button:hover {
-      border-color: var(--accent);
-      color: var(--text);
-      background: var(--accent-dim);
+    .status { text-align: center; color: var(--muted); font-size: 0.9rem; margin-bottom: 1.35rem; min-height: 1.4em; }
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid var(--border); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 0.4rem;
     }
-
-    .status {
-      text-align: center;
-      color: var(--muted);
-      font-size: 0.9rem;
-      margin-bottom: 1.35rem;
-      min-height: 1.4em;
-    }
-
-    .status .spinner {
-      display: inline-block;
-      width: 14px;
-      height: 14px;
-      border: 2px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      vertical-align: -2px;
-      margin-right: 0.4rem;
-    }
-
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    .results {
-      display: flex;
-      flex-direction: column;
-      gap: 0.9rem;
-    }
-
+    .results { display: flex; flex-direction: column; gap: 0.9rem; }
     .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.3rem 1.45rem;
-      transition: border-color 0.15s, transform 0.15s;
-      animation: fadeUp 0.35s ease both;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.3rem 1.45rem;
     }
-
-    .card:nth-child(1) { animation-delay: 0.02s; }
-    .card:nth-child(2) { animation-delay: 0.06s; }
-    .card:nth-child(3) { animation-delay: 0.10s; }
-    .card:nth-child(4) { animation-delay: 0.14s; }
-    .card:nth-child(5) { animation-delay: 0.18s; }
-
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .card:hover {
-      border-color: #3a4a5c;
-    }
-
-    .card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      margin-bottom: 0.55rem;
-    }
-
+    .card-header { display: flex; justify-content: space-between; margin-bottom: 0.55rem; }
     .section-badge {
-      font-family: "JetBrains Mono", monospace;
-      font-size: 0.8rem;
-      font-weight: 500;
-      background: var(--accent-dim);
-      color: var(--accent);
-      padding: 0.22rem 0.6rem;
-      border-radius: 7px;
-      white-space: nowrap;
+      font-family: "JetBrains Mono", monospace; font-size: 0.8rem;
+      background: var(--accent-dim); color: var(--accent);
+      padding: 0.22rem 0.6rem; border-radius: 7px;
     }
-
-    .score {
-      font-family: "JetBrains Mono", monospace;
-      font-size: 0.78rem;
-      color: var(--success);
-      white-space: nowrap;
-    }
-
-    .card h3 {
-      font-size: 1.08rem;
-      font-weight: 600;
-      margin-bottom: 0.5rem;
-      letter-spacing: -0.015em;
-    }
-
-    .card p {
-      color: var(--muted);
-      font-size: 0.9rem;
-      white-space: pre-wrap;
-    }
-
-    footer {
-      text-align: center;
-      margin-top: 3.25rem;
-      color: var(--muted);
-      font-size: 0.8rem;
-    }
-
-    footer a {
-      color: var(--accent);
-      text-decoration: none;
-    }
-
-    footer a:hover { text-decoration: underline; }
-
-    @media (max-width: 540px) {
-      .search-box { flex-direction: column; }
-      .search-box button { width: 100%; }
-      header h1 { font-size: 1.55rem; }
-      .container { padding-top: 1.75rem; }
-    }
+    .score { font-family: "JetBrains Mono", monospace; font-size: 0.78rem; color: var(--success); }
+    .card h3 { font-size: 1.08rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .card p { color: var(--muted); font-size: 0.9rem; white-space: pre-wrap; }
+    footer { text-align: center; margin-top: 3rem; color: var(--muted); font-size: 0.8rem; }
+    footer a { color: var(--accent); text-decoration: none; }
   </style>
 </head>
 <body>
@@ -307,7 +98,7 @@
     <header>
       <div class="badge">Powered by InsightLaw API</div>
       <h1>IPC & BNS Section Finder</h1>
-      <p>Describe an activity or offense in everyday language. We’ll find the matching sections from the Indian Penal Code or Bharatiya Nyaya Sanhita.</p>
+      <p>Describe an activity or offense in everyday language.</p>
     </header>
 
     <div class="corpus-toggle">
@@ -316,13 +107,7 @@
     </div>
 
     <div class="search-box">
-      <input
-        type="text"
-        id="query"
-        placeholder="e.g. someone steals my phone from a shop..."
-        autocomplete="off"
-        autofocus
-      />
+      <input type="text" id="query" placeholder="e.g. someone steals my phone..." autofocus />
       <button id="searchBtn" onclick="doSearch()">Search</button>
     </div>
 
@@ -332,21 +117,19 @@
       <button onclick="setQuery('killing a person intentionally')">Murder</button>
       <button onclick="setQuery('husband tortures wife for dowry')">Dowry cruelty</button>
       <button onclick="setQuery('cheating someone by promising fake job')">Cheating</button>
-      <button onclick="setQuery('throwing acid on someone')">Acid attack</button>
-      <button onclick="setQuery('publishing false news that causes panic')">False news</button>
     </div>
 
     <div class="status" id="status"></div>
     <div class="results" id="results"></div>
 
     <footer>
-      Not legal advice · Data from
-      <a href="https://insightlaw.in" target="_blank" rel="noopener">InsightLaw</a>
-      · Free tier (preview text only)
+      Not legal advice · Data from <a href="https://insightlaw.in" target="_blank">InsightLaw</a>
     </footer>
   </div>
 
   <script>
+    let currentCorpus = "ipc";
+
     const queryEl = document.getElementById("query");
     const statusEl = document.getElementById("status");
     const resultsEl = document.getElementById("results");
@@ -354,9 +137,7 @@
     const btnIpc = document.getElementById("btnIpc");
     const btnBns = document.getElementById("btnBns");
 
-    let currentCorpus = "ipc";
-
-    queryEl.addEventListener("keydown", (e) => {
+    queryEl.addEventListener("keydown", function(e) {
       if (e.key === "Enter") doSearch();
     });
 
@@ -376,7 +157,7 @@
       if (!query) return;
 
       searchBtn.disabled = true;
-      statusEl.innerHTML = '<span class="spinner"></span>Searching ' + currentCorpus.toUpperCase() + '...';
+      statusEl.innerHTML = '<span class="spinner"></span>Searching...';
       resultsEl.innerHTML = "";
 
       try {
@@ -387,30 +168,47 @@
             query: query,
             corpus: currentCorpus,
             top_n: 5
-          }),
+          })
         });
 
         if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.detail || "Search request failed (" + res.status + ")");
+          throw new Error("Search failed (" + res.status + ")");
         }
 
         const data = await res.json();
-        statusEl.textContent = data.length
-          ? `Top ${data.length} matching ${currentCorpus.toUpperCase()} sections`
-          : "No matches found";
 
-        resultsEl.innerHTML = data
-          .map((r) => {
-            return `
-          <article class="card">
-            <div class="card-header">
-              <span class="section-badge">${escapeHtml(r.corpus || currentCorpus.toUpperCase())} § ${escapeHtml(r.section)}</span>
-              <span class="score">Score: ${r.score}</span>
-            </div>
-            <h3>${escapeHtml(r.title)}</h3>
-            <p>${escapeHtml(r.description)}</p>
-          </article>`;
-          })
-          .join("");
+        if (!data || data.length === 0) {
+          statusEl.textContent = "No matches found";
+          return;
+        }
+
+        statusEl.textContent = "Top " + data.length + " matching sections";
+
+        resultsEl.innerHTML = data.map(function(r) {
+          return '<article class="card">' +
+            '<div class="card-header">' +
+              '<span class="section-badge">' + (r.corpus || currentCorpus.toUpperCase()) + ' § ' + r.section + '</span>' +
+              '<span class="score">Score: ' + r.score + '</span>' +
+            '</div>' +
+            '<h3>' + escapeHtml(r.title) + '</h3>' +
+            '<p>' + escapeHtml(r.description) + '</p>' +
+          '</article>';
+        }).join("");
+
       } catch (err) {
+        statusEl.textContent = "Error: " + err.message;
+      } finally {
+        searchBtn.disabled = false;
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+  </script>
+</body>
+</html> 
