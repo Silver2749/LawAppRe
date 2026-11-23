@@ -119,16 +119,12 @@
       color: var(--muted);
       font-size: 0.9rem;
       line-height: 1.55;
+      max-height: 4.2em;
       overflow: hidden;
-      display: -webkit-box;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 3;
-      transition: all 0.2s ease;
+      transition: all 0.3s ease;
     }
     .card.expanded .card-desc {
-      -webkit-line-clamp: unset;
-      display: block;
-      white-space: pre-wrap;
+      max-height: 2000px;
     }
 
     .expand-hint {
@@ -219,9 +215,12 @@
     }
 
     function toggleCard(card) {
-      card.classList.toggle("expanded");
-    }
+    const isExpanded = card.classList.toggle("expanded");
 
+    card.setAttribute("aria-expanded", isExpanded);
+}
+
+    
     async function doSearch() {
       const query = queryEl.value.trim();
       if (!query) return;
