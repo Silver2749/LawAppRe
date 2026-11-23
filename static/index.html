@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IPC Semantic Search</title>
-  <meta name="description" content="Describe an activity in plain language and find matching Indian Penal Code sections using AI embeddings." />
+  <title>LawAppRe – IPC & BNS Search</title>
+  <meta name="description" content="Describe an activity in plain language and find matching IPC / BNS sections using InsightLaw API." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -70,8 +70,34 @@
     header p {
       color: var(--muted);
       font-size: 0.98rem;
-      max-width: 420px;
+      max-width: 440px;
       margin: 0 auto;
+    }
+
+    .corpus-toggle {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .corpus-toggle button {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 0.4rem 1.1rem;
+      font-size: 0.85rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .corpus-toggle button.active {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
     }
 
     .search-box {
@@ -234,29 +260,11 @@
       white-space: nowrap;
     }
 
-    .similarity {
+    .score {
       font-family: "JetBrains Mono", monospace;
       font-size: 0.78rem;
       color: var(--success);
       white-space: nowrap;
-      display: flex;
-      align-items: center;
-      gap: 0.35rem;
-    }
-
-    .sim-bar {
-      width: 48px;
-      height: 4px;
-      background: var(--surface2);
-      border-radius: 2px;
-      overflow: hidden;
-    }
-
-    .sim-bar span {
-      display: block;
-      height: 100%;
-      background: var(--success);
-      border-radius: 2px;
     }
 
     .card h3 {
@@ -297,10 +305,15 @@
 <body>
   <div class="container">
     <header>
-      <div class="badge">Semantic Search · all-MiniLM-L6-v2</div>
-      <h1>IPC Section Finder</h1>
-      <p>Describe an activity or offense in everyday language. We'll find the closest matching Indian Penal Code sections.</p>
+      <div class="badge">Powered by InsightLaw API</div>
+      <h1>IPC & BNS Section Finder</h1>
+      <p>Describe an activity or offense in everyday language. We’ll find the matching sections from the Indian Penal Code or Bharatiya Nyaya Sanhita.</p>
     </header>
+
+    <div class="corpus-toggle">
+      <button id="btnIpc" class="active" onclick="setCorpus('ipc')">IPC</button>
+      <button id="btnBns" onclick="setCorpus('bns')">BNS 2023</button>
+    </div>
 
     <div class="search-box">
       <input
@@ -327,8 +340,9 @@
     <div class="results" id="results"></div>
 
     <footer>
-      Not legal advice · Embeddings generated offline ·
-      Data from <a href="https://github.com/civictech-India/Indian-Law-Penal-Code-Json" target="_blank" rel="noopener">civictech-India</a>
+      Not legal advice · Data from
+      <a href="https://insightlaw.in" target="_blank" rel="noopener">InsightLaw</a>
+      · Free tier (preview text only)
     </footer>
   </div>
 
@@ -337,10 +351,20 @@
     const statusEl = document.getElementById("status");
     const resultsEl = document.getElementById("results");
     const searchBtn = document.getElementById("searchBtn");
+    const btnIpc = document.getElementById("btnIpc");
+    const btnBns = document.getElementById("btnBns");
+
+    let currentCorpus = "ipc";
 
     queryEl.addEventListener("keydown", (e) => {
       if (e.key === "Enter") doSearch();
     });
+
+    function setCorpus(corpus) {
+      currentCorpus = corpus;
+      btnIpc.classList.toggle("active", corpus === "ipc");
+      btnBns.classList.toggle("active", corpus === "bns");
+    }
 
     function setQuery(text) {
       queryEl.value = text;
@@ -352,56 +376,41 @@
       if (!query) return;
 
       searchBtn.disabled = true;
-      statusEl.innerHTML = '<span class="spinner"></span>Searching...';
+      statusEl.innerHTML = '<span class="spinner"></span>Searching ' + currentCorpus.toUpperCase() + '...';
       resultsEl.innerHTML = "";
 
       try {
         const res = await fetch("/search", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query }),
+          body: JSON.stringify({
+            query: query,
+            corpus: currentCorpus,
+            top_n: 5
+          }),
         });
 
-        if (!res.ok) throw new Error("Search request failed (" + res.status + ")");
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || "Search request failed (" + res.status + ")");
+        }
 
         const data = await res.json();
         statusEl.textContent = data.length
-          ? `Top ${data.length} matching sections`
+          ? `Top ${data.length} matching ${currentCorpus.toUpperCase()} sections`
           : "No matches found";
 
         resultsEl.innerHTML = data
-          .map(
-            (r) => {
-              const pct = Math.round(r.similarity * 1000) / 10;
-              return `
+          .map((r) => {
+            return `
           <article class="card">
             <div class="card-header">
-              <span class="section-badge">Section ${escapeHtml(r.section)}</span>
-              <span class="similarity">
-                <span class="sim-bar"><span style="width:${Math.min(100, pct)}%"></span></span>
-                ${pct}%
-              </span>
+              <span class="section-badge">${escapeHtml(r.corpus || currentCorpus.toUpperCase())} § ${escapeHtml(r.section)}</span>
+              <span class="score">Score: ${r.score}</span>
             </div>
             <h3>${escapeHtml(r.title)}</h3>
             <p>${escapeHtml(r.description)}</p>
           </article>`;
-            }
-          )
+          })
           .join("");
       } catch (err) {
-        statusEl.textContent = "Error: " + err.message;
-      } finally {
-        searchBtn.disabled = false;
-      }
-    }
-
-    function escapeHtml(str) {
-      return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
-    }
-  </script>
-</body>
-</html>

@@ -1,137 +1,121 @@
 #!/usr/bin/env python3
-"""IPC Semantic Search API + static frontend"""
+"""LawAppRe – IPC Semantic Search using InsightLaw API"""
 
-import json
 import os
-from pathlib import Path
-from typing import List
+from typing import List, Optional
 
-import numpy as np
-import redis
-from fastapi import FastAPI
+import httpx
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from sentence_transformers import SentenceTransformer
 
-DATA_DIR = Path(__file__).parent / "data"
-EMBEDDED_PATH = DATA_DIR / "embedded_ipc.json"
-STATIC_DIR = Path(__file__).parent / "static"
+# InsightLaw API
+INSIGHTLAW_BASE = "https://insightlaw.in"
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
-# Redis connection (change host/port/password as needed)
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-redis_client = redis.from_url(REDIS_URL, decode_responses=True)
-
-REDIS_KEY = "lawappre:embedded_ipc"  # key used to store the data
-
-app = FastAPI(title="IPC Semantic Search", version="1.0.0")
-
-
-def load_laws_from_json():
-    """Fallback: load from the original JSON file"""
-    with open(EMBEDDED_PATH) as f:
-        return json.load(f)
-
-
-def get_laws():
-    """
-    Try to load from Redis first.
-    If not present, load from JSON and cache it in Redis.
-    """
-    cached = redis_client.get(REDIS_KEY)
-    if cached:
-        print("Loaded embeddings from Redis cache")
-        return json.loads(cached)
-
-    print("Redis cache miss → loading from JSON and caching...")
-    laws = load_laws_from_json()
-
-    # Store in Redis (no expiry, or set an expiry if you want)
-    redis_client.set(REDIS_KEY, json.dumps(laws))
-    # Optional: expire after 7 days
-    # redis_client.setex(REDIS_KEY, 60 * 60 * 24 * 7, json.dumps(laws))
-
-    print(f"Cached {len(laws)} sections in Redis")
-    return laws
-
-
-# ---------- Load data & model at startup ----------
-print("Loading embeddings...")
-LAWS = get_laws()
-
-EMBEDDINGS = np.array([law["embedding"] for law in LAWS], dtype=np.float32)
-NORMS = np.linalg.norm(EMBEDDINGS, axis=1, keepdims=True)
-NORMS[NORMS == 0] = 1.0
-EMBEDDINGS_NORM = EMBEDDINGS / NORMS
-
-print(f"Loaded {len(LAWS)} sections. Loading query model...")
-MODEL = SentenceTransformer("all-MiniLM-L6-v2")
-print("Ready.")
+app = FastAPI(title="LawAppRe – IPC Search via InsightLaw", version="2.0.0")
 
 
 class SearchRequest(BaseModel):
     query: str
+    top_n: Optional[int] = 5
+    corpus: Optional[str] = "ipc"  # "ipc" or "bns"
 
 
 class SearchResult(BaseModel):
-    similarity: float
     section: str
     title: str
     description: str
+    score: float
+    corpus: str
 
 
-def cosine_search(query: str, top_n: int = 5) -> List[SearchResult]:
-    q_emb = MODEL.encode([query], convert_to_numpy=True)[0].astype(np.float32)
-    q_norm = np.linalg.norm(q_emb)
-    if q_norm == 0:
-        q_norm = 1.0
-    q_emb = q_emb / q_norm
+async def search_insightlaw(
+    query: str, corpus: str = "ipc", top_n: int = 5
+) -> List[SearchResult]:
+    """Call InsightLaw search API"""
+    if corpus not in ("ipc", "bns"):
+        corpus = "ipc"
 
-    scores = EMBEDDINGS_NORM @ q_emb
-    top_idx = np.argsort(scores)[::-1][:top_n]
+    url = f"{INSIGHTLAW_BASE}/api/{corpus}/search"
+    params = {"q": query.strip()}
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        try:
+            resp = await client.get(url, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+        except httpx.HTTPError as e:
+            raise HTTPException(
+                status_code=502, detail=f"InsightLaw API error: {str(e)}"
+            )
 
     results = []
-    for i in top_idx:
-        law = LAWS[i]
+    for item in data.get("results", [])[:top_n]:
+        preview = item.get("preview", {})
+        description = preview.get("en") or preview.get("hi") or preview.get("ml") or ""
+
         results.append(
             SearchResult(
-                similarity=float(scores[i]),
-                section=law["section"],
-                title=law["title"],
-                description=law["description"],
+                section=str(item.get("section", "")),
+                title=item.get("title_en") or item.get("title", ""),
+                description=description,
+                score=float(item.get("score", 0)),
+                corpus=data.get("corpus", corpus.upper()),
             )
         )
     return results
 
 
 @app.post("/search", response_model=List[SearchResult])
-def search(body: SearchRequest):
-    return cosine_search(body.query.strip(), top_n=5)
+async def search(body: SearchRequest):
+    if not body.query or not body.query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty")
+    return await search_insightlaw(body.query, body.corpus or "ipc", body.top_n or 5)
+
+
+@app.get("/section/{corpus}/{number}")
+async def get_section(corpus: str, number: str):
+    """Fetch a single section by number (ipc or bns)"""
+    if corpus not in ("ipc", "bns"):
+        raise HTTPException(status_code=400, detail="corpus must be 'ipc' or 'bns'")
+
+    url = f"{INSIGHTLAW_BASE}/api/{corpus}/section/{number}"
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(url)
+        if resp.status_code == 404:
+            raise HTTPException(status_code=404, detail="Section not found")
+        resp.raise_for_status()
+        return resp.json()
 
 
 @app.get("/health")
-def health():
+async def health():
+    """Check both our service and InsightLaw"""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.get(f"{INSIGHTLAW_BASE}/api/health")
+            insight_status = (
+                r.json() if r.status_code == 200 else {"status": "unavailable"}
+            )
+    except Exception:
+        insight_status = {"status": "unavailable"}
+
     return {
         "status": "ok",
-        "sections": len(LAWS),
-        "cache": "redis" if redis_client.exists(REDIS_KEY) else "json",
+        "backend": "InsightLaw API",
+        "insightlaw": insight_status,
     }
 
 
-# Optional: endpoint to force refresh the cache
-@app.post("/refresh-cache")
-def refresh_cache():
-    laws = load_laws_from_json()
-    redis_client.set(REDIS_KEY, json.dumps(laws))
-    return {"message": f"Cache refreshed with {len(laws)} sections"}
+# Serve frontend
+if os.path.isdir(STATIC_DIR):
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-
-
-@app.get("/")
-def index():
-    return FileResponse(STATIC_DIR / "index.html")
+    @app.get("/")
+    def index():
+        return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 
 if __name__ == "__main__":
