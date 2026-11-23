@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -43,7 +43,7 @@
     .corpus-toggle button {
       background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
       border-radius: 999px; padding: 0.4rem 1.1rem; font-size: 0.85rem;
-      font-family: inherit; cursor: pointer;
+      font-family: inherit; cursor: pointer; transition: all 0.15s;
     }
     .corpus-toggle button.active {
       background: var(--accent-dim); border-color: var(--accent); color: var(--accent); font-weight: 600;
@@ -76,19 +76,85 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     .results { display: flex; flex-direction: column; gap: 0.9rem; }
+
     .card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 1.3rem 1.45rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.3rem 1.45rem;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      user-select: none;
     }
-    .card-header { display: flex; justify-content: space-between; margin-bottom: 0.55rem; }
+    .card:hover { border-color: #3a4a5c; }
+    .card.expanded { border-color: var(--accent); background: #141b26; }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.55rem;
+    }
     .section-badge {
-      font-family: "JetBrains Mono", monospace; font-size: 0.8rem;
-      background: var(--accent-dim); color: var(--accent);
-      padding: 0.22rem 0.6rem; border-radius: 7px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.8rem;
+      background: var(--accent-dim);
+      color: var(--accent);
+      padding: 0.22rem 0.6rem;
+      border-radius: 7px;
     }
-    .score { font-family: "JetBrains Mono", monospace; font-size: 0.78rem; color: var(--success); }
-    .card h3 { font-size: 1.08rem; font-weight: 600; margin-bottom: 0.5rem; }
-    .card p { color: var(--muted); font-size: 0.9rem; white-space: pre-wrap; }
+    .score {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.78rem;
+      color: var(--success);
+    }
+    .card h3 {
+      font-size: 1.08rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    /* Collapsed = limited lines */
+    .card-desc {
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.55;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
+      transition: all 0.2s ease;
+    }
+    .card.expanded .card-desc {
+      -webkit-line-clamp: unset;
+      display: block;
+      white-space: pre-wrap;
+    }
+
+    .expand-hint {
+      margin-top: 0.65rem;
+      font-size: 0.78rem;
+      color: var(--accent);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .expand-hint::before {
+      content: "▾";
+      font-size: 0.9rem;
+      transition: transform 0.2s;
+    }
+    .card.expanded .expand-hint::before {
+      transform: rotate(180deg);
+    }
+    .card.expanded .expand-hint .hint-text::after {
+      content: "Click to collapse";
+    }
+    .card:not(.expanded) .expand-hint .hint-text::after {
+      content: "Click to expand";
+    }
+
     footer { text-align: center; margin-top: 3rem; color: var(--muted); font-size: 0.8rem; }
     footer a { color: var(--accent); text-decoration: none; }
   </style>
@@ -152,6 +218,10 @@
       doSearch();
     }
 
+    function toggleCard(card) {
+      card.classList.toggle("expanded");
+    }
+
     async function doSearch() {
       const query = queryEl.value.trim();
       if (!query) return;
@@ -185,13 +255,14 @@
         statusEl.textContent = "Top " + data.length + " matching sections";
 
         resultsEl.innerHTML = data.map(function(r) {
-          return '<article class="card">' +
+          return '<article class="card" onclick="toggleCard(this)">' +
             '<div class="card-header">' +
               '<span class="section-badge">' + (r.corpus || currentCorpus.toUpperCase()) + ' § ' + r.section + '</span>' +
               '<span class="score">Score: ' + r.score + '</span>' +
             '</div>' +
             '<h3>' + escapeHtml(r.title) + '</h3>' +
-            '<p>' + escapeHtml(r.description) + '</p>' +
+            '<div class="card-desc">' + escapeHtml(r.description) + '</div>' +
+            '<div class="expand-hint"><span class="hint-text"></span></div>' +
           '</article>';
         }).join("");
 
@@ -207,8 +278,11 @@
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
+        .replace(/"/g, "&quot;")
+        .replace(/&#8217;/g, "'")
+        .replace(/&#8212;/g, "—");
     }
   </script>
 </body>
-</html> 
+</html>
+
